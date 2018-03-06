@@ -46,11 +46,11 @@ func (s Server) Listen(port string) error {
 			continue
 		}
 
-		go handler(conn)
+		go handlerPing(conn)
 	}
 }
 
-func handler(conn net.Conn) {
+func handlerPing(conn net.Conn) {
 
 	var (
 		buf = make([]byte, 1024)
@@ -69,24 +69,31 @@ ILOOP:
 		case io.EOF:
 			break ILOOP
 		case nil:
-			log.Println("Received:", data)
+			if isPing(data) {
+				log.Print("received: ", data)
+				continue ILOOP
+			}
 			if isCRLF(data) {
 				break ILOOP
 			}
 
 		default:
-			log.Fatalf("Receive data failed:%s", err)
+			log.Fatalf("receive data failed: %s", err)
 			return
 		}
 
 	}
 	pong(w)
-	log.Printf("Send: %s", "PONG")
+	log.Printf("send: %s", "pong")
 }
 
 func pong(w *bufio.Writer) {
-	w.Write([]byte("PONG" + CRLF))
+	w.Write([]byte("pong" + CRLF))
 	w.Flush()
+}
+
+func isPing(data string) bool {
+	return strings.HasPrefix(data, "ping")
 }
 
 func isCRLF(data string) bool {
