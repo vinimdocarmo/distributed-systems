@@ -4,14 +4,13 @@ import (
 	"log"
 	"os"
 
-	"./server"
+	"./socket"
 )
 
 func main() {
+	s := socket.NewScoket()
 
-	s := server.NewServer()
-
-	err := s.Listen("3000")
+	err := s.Listen("0.0.0.0", "3000")
 
 	if err != nil {
 		log.Fatal("Error: ", err)
