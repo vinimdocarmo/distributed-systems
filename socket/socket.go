@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 )
 
 const (
@@ -27,7 +28,7 @@ func (s Socket) Listen(addr, port string) error {
 		return err
 	}
 
-	log.Printf("socket listening on %s\n", address)
+	log.Printf("[server] listening on %s\n", address)
 
 	for {
 		conn, err := l.Accept()
@@ -56,7 +57,7 @@ func (s Socket) Listen(addr, port string) error {
 					break ILOOP
 				case nil:
 					if isPing(data) {
-						log.Print("received: ", data)
+						log.Print("[server] received: ", data)
 						continue ILOOP
 					}
 					if isCRLF(data) {
@@ -64,13 +65,13 @@ func (s Socket) Listen(addr, port string) error {
 					}
 
 				default:
-					log.Fatalf("receive data failed: %s", err)
+					log.Fatalf("[server] receive data failed: %s", err)
 					return
 				}
 
 			}
 			s.Pong(w)
-			log.Printf("send: %s", "pong")
+			log.Printf("[server] response: %s", "pong")
 		}()
 	}
 }
@@ -82,16 +83,25 @@ func (s Socket) Pong(w *bufio.Writer) {
 }
 
 //Ping dials to server with string "ping"
-func (s Socket) Ping(addr, port string) error {
-	conn, err := net.Dial("tcp4", addr+":"+port)
+func (s Socket) Ping(addr, port string) {
 
-	if err != nil {
-		return err
+	for {
+		conn, err := net.Dial("tcp4", addr+":"+port)
+
+		if err != nil {
+			log.Println("[client] error dialing " + addr + ":" + port)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		conn.Write([]byte("ping"))
+		conn.Write([]byte("\r\n\r\n"))
+
+		log.Printf("[client] request: %s", "ping")
+
+		conn.Close()
+		time.Sleep(2 * time.Second)
 	}
-
-	defer conn.Close()
-
-	return nil
 }
 
 //NewScoket creates an instance of Socket

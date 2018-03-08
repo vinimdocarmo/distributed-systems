@@ -11,20 +11,28 @@ func main() {
 	s := socket.NewScoket()
 
 	listenOn := os.Args[1]
+
+	cServer := make(chan int)
 	pingTo := os.Args[2]
 
-	err := s.Listen("0.0.0.0", listenOn)
+	go func() {
+		err := s.Listen("0.0.0.0", listenOn)
 
-	if err != nil {
-		log.Fatal("Error: ", err)
-		os.Exit(1)
-	}
+		if err != nil {
+			log.Fatal("Error: ", err)
+			os.Exit(1)
+		}
 
-	err = s.Ping("0.0.0.0", pingTo)
+		cServer <- 0
+	}()
 
-	if err != nil {
-		log.Fatal("Error: ", err)
-		os.Exit(1)
-	}
+	cClient := make(chan int)
 
+	go func() {
+		s.Ping("0.0.0.0", pingTo)
+		cClient <- 0
+	}()
+
+	<-cServer
+	<-cClient
 }
