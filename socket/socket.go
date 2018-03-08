@@ -83,6 +83,14 @@ func (s Socket) Pong(w *bufio.Writer) {
 
 //Ping dials to server with string "ping"
 func (s Socket) Ping(addr, port string) error {
+	conn, err := net.Dial("tcp4", addr+":"+port)
+
+	if err != nil {
+		return err
+	}
+
+	defer conn.Close()
+
 	return nil
 }
 
