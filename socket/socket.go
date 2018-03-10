@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	crlf = "\r\n"
+	crlf = "\r\n\r\n"
 )
 
 //Socket represents the interface of communication
@@ -56,22 +56,19 @@ func (s Socket) Listen(addr, port string) error {
 				case io.EOF:
 					break ILOOP
 				case nil:
-					if isPing(data) {
-						log.Print("[server] received: ", data)
-						continue ILOOP
-					}
 					if isCRLF(data) {
+						log.Print("[server] received: ", data)
+						s.Pong(w)
+						log.Printf("[server] response: %s", "pong")
+
 						break ILOOP
 					}
-
 				default:
 					log.Fatalf("[server] receive data failed: %s", err)
 					return
 				}
 
 			}
-			s.Pong(w)
-			log.Printf("[server] response: %s", "pong")
 		}()
 	}
 }
@@ -83,13 +80,13 @@ func (s Socket) Pong(w *bufio.Writer) {
 }
 
 //Ping dials to server with string "ping"
-func (s Socket) Ping(addr, port string) {
+func (s Socket) Ping(host, port string) {
 
 	for {
-		conn, err := net.Dial("tcp4", addr+":"+port)
+		conn, err := net.Dial("tcp4", net.JoinHostPort(host, port))
 
 		if err != nil {
-			log.Println("[client] error dialing " + addr + ":" + port)
+			log.Println("[client] couldn't dial to " + host + ":" + port)
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -107,10 +104,6 @@ func (s Socket) Ping(addr, port string) {
 //NewScoket creates an instance of Socket
 func NewScoket() Socket {
 	return Socket{}
-}
-
-func isPing(data string) bool {
-	return strings.HasPrefix(data, "ping")
 }
 
 func isCRLF(data string) bool {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net"
 	"os"
 
 	"./socket"
@@ -10,13 +11,24 @@ import (
 func main() {
 	s := socket.NewScoket()
 
-	listenOn := os.Args[1]
+	host1, port1, err := net.SplitHostPort(os.Args[1])
+
+	if err != nil {
+		log.Fatal("Error reading address from command line arguments")
+		os.Exit(1)
+	}
+
+	host2, port2, err := net.SplitHostPort(os.Args[2])
+
+	if err != nil {
+		log.Fatal("Error reading address from command line arguments")
+		os.Exit(1)
+	}
 
 	cServer := make(chan int)
-	pingTo := os.Args[2]
 
 	go func() {
-		err := s.Listen("0.0.0.0", listenOn)
+		err := s.Listen(host1, port1)
 
 		if err != nil {
 			log.Fatal("Error: ", err)
@@ -29,7 +41,7 @@ func main() {
 	cClient := make(chan int)
 
 	go func() {
-		s.Ping("0.0.0.0", pingTo)
+		s.Ping(host2, port2)
 		cClient <- 0
 	}()
 
