@@ -2,6 +2,7 @@ package socket
 
 import (
 	"bufio"
+	"io"
 	"net"
 	"strings"
 )
@@ -32,25 +33,32 @@ func (s Socket) Listen(c chan string) {
 		conn, err := l.Accept()
 
 		if err != nil {
-			c <- "exit"
-			return
+			continue
 		}
 
-		var (
-			buf = make([]byte, 1024)
-			r   = bufio.NewReader(conn)
-			w   = bufio.NewWriter(conn)
-		)
+		go func(conn net.Conn) {
+			var (
+				buf = make([]byte, 1024)
+				r   = bufio.NewReader(conn)
+				w   = bufio.NewWriter(conn)
+			)
 
-		n, err := r.Read(buf)
-		data := string(buf[:n])
+			for {
+				n, err := r.Read(buf)
+				data := string(buf[:n])
 
-		if err == nil {
-			c <- data
-			s.Pong(w)
-		}
+				if err == io.EOF {
+					conn.Close()
+					break
+				}
 
-		conn.Close()
+				if err == nil {
+					c <- data
+					s.Pong(w)
+					continue
+				}
+			}
+		}(conn)
 	}
 }
 
