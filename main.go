@@ -7,12 +7,14 @@ import (
 	"net"
 	"os"
 	"strings"
+
+	"./socket"
 )
 
 type gui struct {
 }
 
-func (g gui) init() {
+func (g gui) init(c chan string) {
 	fmt.Println(`
    _____               __          __ 
   / ___/ ____   _____ / /__ ___   / /_
@@ -21,40 +23,94 @@ func (g gui) init() {
 /____/ \____/ \___//_/|_| \___/ \__/  
 												
 		  `)
-}
-
-func main() {
-	// s := socket.NewScoket()
-	g := gui{}
 
 	serverHost, serverPort, err := net.SplitHostPort(os.Args[1])
 
 	if err != nil {
-		log.Fatal("Error reading address from command line arguments")
+		log.Fatal("⚠️ error reading server address from command line arguments")
 		os.Exit(1)
 	}
 
 	peerHost, peerPort, err := net.SplitHostPort(os.Args[2])
 
 	if err != nil {
-		log.Fatal("Error reading address from command line arguments")
+		log.Fatal("⚠️ error reading peer address from command line arguments")
 		os.Exit(1)
 	}
 
-	g.init()
-	fmt.Printf("👂 socket listening on \t%s\n", net.JoinHostPort(serverHost, serverPort))
-	fmt.Printf("🖥️ connected to peer \t%s\n\n\n", net.JoinHostPort(peerHost, peerPort))
+	s := socket.NewSocket(
+		net.JoinHostPort(serverHost, serverPort),
+		net.JoinHostPort(peerHost, peerPort),
+	)
 
+	schan := make(chan string)
+	pchan := make(chan string)
+
+	go s.Listen(schan)
+	go s.Connect(pchan)
+
+	go func() {
+		for {
+			str := <-schan
+
+			switch str {
+			case "listening":
+				fmt.Printf("👂 socket listening on %s\n", net.JoinHostPort(serverHost, serverPort))
+			case "exit":
+				fmt.Printf("❌ stopped listening on %s\n", net.JoinHostPort(serverHost, serverPort))
+				close(schan)
+				c <- "exit"
+				return
+			default:
+				fmt.Printf("📥 %s: %s", net.JoinHostPort(peerHost, peerPort), str)
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			str := <-pchan
+
+			switch str {
+			case "connected":
+				fmt.Printf("🖥️ connected to peer %s\n", net.JoinHostPort(peerHost, peerPort))
+			case "exit":
+				fmt.Printf("❌ peer disconnected %s\n", net.JoinHostPort(serverHost, serverPort))
+				close(pchan)
+				c <- "exit"
+			default:
+				fmt.Printf("📥 %s: %s", net.JoinHostPort(peerHost, peerPort), str)
+			}
+		}
+	}()
+
+}
+
+func (g gui) chat(serverAddr string) {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		fmt.Printf("💬 %s: ", net.JoinHostPort(serverHost, serverPort))
+		fmt.Printf("💬 %s: ", serverAddr)
 		text, _ := reader.ReadString('\n')
 		// convert CRLF to LF
 		text = strings.Replace(text, "\n", "", -1)
 
-		if strings.Compare("hi", text) == 0 {
-			fmt.Printf("📥 %s: \n", net.JoinHostPort(peerHost, peerPort))
+		//send text message
+	}
+}
+
+func main() {
+	g := gui{}
+
+	gchan := make(chan string)
+
+	g.init(gchan)
+
+	for {
+		str := <-gchan
+
+		if str == "exit" {
+			return
 		}
 	}
 

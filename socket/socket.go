@@ -2,74 +2,55 @@ package socket
 
 import (
 	"bufio"
-	"io"
-	"log"
 	"net"
 	"strings"
-	"time"
 )
 
 const (
-	crlf = "\r\n\r\n"
+	crlf = "\r\n"
 )
 
 //Socket represents the interface of communication
 //between the layers transportion and application
 type Socket struct {
-	listener net.Listener
+	serverAddr string
+	peerAddr   string
 }
 
 //Listen to on the specified port and set the listener to the server
-func (s Socket) Listen(addr, port string) error {
-	address := addr + ":" + port
-	l, err := net.Listen("tcp4", address)
+func (s Socket) Listen(c chan string) {
+	l, err := net.Listen("tcp4", s.serverAddr)
 
 	if err != nil {
-		return err
+		c <- "exit"
+		return
 	}
 
-	log.Printf("[server] listening on %s\n", address)
+	c <- "listening"
 
 	for {
 		conn, err := l.Accept()
 
 		if err != nil {
-			log.Fatalln(err)
-			continue
+			c <- "exit"
+			return
 		}
 
-		go func() {
-			var (
-				buf = make([]byte, 1024)
-				r   = bufio.NewReader(conn)
-				w   = bufio.NewWriter(conn)
-			)
+		var (
+			buf = make([]byte, 1024)
+			r   = bufio.NewReader(conn)
+			w   = bufio.NewWriter(conn)
+		)
 
-			defer conn.Close()
+		n, err := r.Read(buf)
+		data := string(buf[:n])
 
-		ILOOP:
-			for {
-				n, err := r.Read(buf)
-				data := string(buf[:n])
+		if err == nil {
+			c <- data
+			s.Pong(w)
+		}
 
-				switch err {
-				case io.EOF:
-					break ILOOP
-				case nil:
-					if isCRLF(data) {
-						log.Print("[server] received: ", data)
-						s.Pong(w)
-						log.Printf("[server] response: %s", "pong")
-
-						break ILOOP
-					}
-				default:
-					log.Fatalf("[server] receive data failed: %s", err)
-					return
-				}
-
-			}
-		}()
+		conn.Close()
 	}
 }
 
@@ -79,31 +60,24 @@ func (s Socket) Pong(w *bufio.Writer) {
 	w.Flush()
 }
 
-//Ping dials to server with string "ping"
-func (s Socket) Ping(host, port string) {
+//Connect connects to peer in address s.peerAddr
+func (s Socket) Connect(c chan string) error {
+	conn, err := net.Dial("tcp4", s.peerAddr)
 
-	for {
-		conn, err := net.Dial("tcp4", net.JoinHostPort(host, port))
-
-		if err != nil {
-			log.Println("[client] couldn't dial to " + host + ":" + port)
-			time.Sleep(2 * time.Second)
-			continue
-		}
-
-		conn.Write([]byte("ping"))
-		conn.Write([]byte("\r\n\r\n"))
-
-		log.Printf("[client] request: %s", "ping")
-
-		conn.Close()
-		time.Sleep(2 * time.Second)
+	if err != nil {
+		return err
 	}
+
+	defer conn.Close()
+
+	c <- "connected"
+
+	return nil
 }
 
-//NewScoket creates an instance of Socket
-func NewScoket() Socket {
-	return Socket{}
+//NewSocket creates an instance of Socket
+func NewSocket(serverAddr, peerAddr string) Socket {
+	return Socket{serverAddr, peerAddr}
 }
 
 func isCRLF(data string) bool {
