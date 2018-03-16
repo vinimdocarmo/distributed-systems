@@ -45,6 +45,8 @@ func (g gui) init(mode, addr string) {
 
 		for {
 			select {
+			case c := <-s.Connected:
+			case d := <-s.Disconnected:
 			case ms := <-s.Messages:
 				fmt.Printf("📥 %s: %s\n", ms.Addr(), ms.Message())
 			}
