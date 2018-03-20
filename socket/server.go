@@ -23,12 +23,18 @@ func (sm socketMessage) Addr() string {
 
 //Server represents a server on client-server architecture
 type Server struct {
-	Messages chan socketMessage
+	Messages     chan socketMessage
+	Connected    chan net.Conn
+	Disconnected chan net.Conn
 }
 
 //NewServer creates a new instance of Server
 func NewServer() Server {
-	return Server{Messages: make(chan socketMessage)}
+	return Server{
+		Messages:     make(chan socketMessage),
+		Connected:    make(chan net.Conn),
+		Disconnected: make(chan net.Conn),
+	}
 }
 
 //Listen announces on the local network address.
@@ -57,6 +63,8 @@ func handleConnection(s Server, conn net.Conn) {
 		w   = bufio.NewWriter(conn)
 	)
 
+	s.Connected <- conn
+
 	defer conn.Close()
 
 	for {
@@ -64,6 +72,7 @@ func handleConnection(s Server, conn net.Conn) {
 		data := string(buf[:n])
 
 		if err == io.EOF {
+			s.Disconnected <- conn
 			break
 		}
 

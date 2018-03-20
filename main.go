@@ -46,7 +46,9 @@ func (g gui) init(mode, addr string) {
 		for {
 			select {
 			case c := <-s.Connected:
+				fmt.Printf("➕ peer connected %s\n", c.RemoteAddr().String())
 			case d := <-s.Disconnected:
+				fmt.Printf("➖ peer disconnected %s\n", d.RemoteAddr().String())
 			case ms := <-s.Messages:
 				fmt.Printf("📥 %s: %s\n", ms.Addr(), ms.Message())
 			}
@@ -67,11 +69,7 @@ func (g gui) init(mode, addr string) {
 
 		for {
 			select {
-			case connected := <-c.Connected:
-				if !connected {
-					continue
-				}
-
+			case <-c.Connected:
 				reader := bufio.NewReader(os.Stdin)
 
 				for {
